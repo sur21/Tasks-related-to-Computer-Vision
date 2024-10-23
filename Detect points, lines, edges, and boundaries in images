@@ -1,0 +1,34 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+def show_images(images, titles, cols=2):
+    plt.figure(figsize=(10, 5 * ((len(images) + cols - 1) // cols)))
+    for i, (img, title) in enumerate(zip(images, titles)):
+        plt.subplot((len(images) + cols - 1) // cols, cols, i + 1)
+        plt.imshow(img, cmap='gray')
+        plt.title(title)
+        plt.axis('off')
+    plt.show()
+
+def process_image(image_path):
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    blurred = cv2.GaussianBlur(image, (5, 5), 0)
+
+    points = np.uint8(np.abs(cv2.Laplacian(blurred, cv2.CV_64F)) > 20)
+    edges = cv2.Canny(image, 100, 200)
+    sobel_edges = np.uint8(np.hypot(cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=5), cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=5)))
+
+    lines_image = np.zeros(image.shape, dtype=np.uint8)
+    for rho, theta in (cv2.HoughLines(cv2.Canny(image, 50, 150, apertureSize=3), 1, np.pi / 180, 100) or []):
+        a, b = np.cos(theta), np.sin(theta)
+        x0, y0 = a * rho, b * rho
+        cv2.line(lines_image, (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a))),
+                       (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a))), (255, 0, 0), 2)
+
+    show_images([image, points, lines_image, sobel_edges, edges],
+                ['Original Image', 'Point Detection (LoG)', 'Line Detection (Hough)', 'Sobel Edge Detection', 'Canny Edge Detection'])
+
+# Execute processing
+process_image('them-snapshots-xjtf-t1UDzg-unsplash.jpg')
+)
