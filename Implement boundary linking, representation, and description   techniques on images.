@@ -1,0 +1,81 @@
+# First, we need to install OpenCV if it's not already available
+!pip install opencv-python matplotlib
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from google.colab import files
+
+# Function to display images
+def show_images(images, titles):
+    """Displays a list of images with their corresponding titles."""
+    plt.figure(figsize=(10, 5))
+    for i, (img, title) in enumerate(zip(images, titles)):
+        plt.subplot(1, len(images), i + 1)
+        plt.imshow(img, cmap='gray')
+        plt.title(title)
+        plt.axis('off')
+    plt.show()
+
+def boundary_linking(edge_img):
+    """Links boundaries in an edge-detected image."""
+    boundaries, visited = [], np.zeros(edge_img.shape, dtype=bool)
+    neighbors = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+    def follow_edge(x, y):
+        """Follows and records a boundary starting from (x, y)."""
+        boundary, stack = [(x, y)], [(x, y)]
+        visited[y, x] = True
+        while stack:
+            cx, cy = stack.pop()
+            for dx, dy in neighbors:
+                nx, ny = cx + dx, cy + dy
+                if (0 <= nx < edge_img.shape[1] and
+                    0 <= ny < edge_img.shape[0] and
+                    edge_img[ny, nx] == 255 and not visited[ny, nx]):
+                    visited[ny, nx] = True
+                    boundary.append((nx, ny))
+                    stack.append((nx, ny))
+        return boundary
+
+    for y in range(edge_img.shape[0]):
+        for x in range(edge_img.shape[1]):
+            if edge_img[y, x] == 255 and not visited[y, x]:
+                boundaries.append(follow_edge(x, y))
+    return boundaries
+
+def chain_code(boundary):
+    """Generates the chain code representation of a boundary."""
+    return [f"{(boundary[i][0] - boundary[i-1][0], boundary[i][1] - boundary[i-1][1])}" for i in range(1, len(boundary))]
+
+def main(image_path):
+    """Main function to load the image, process it, and show results."""
+    # Load the image in grayscale
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        print(f"Error: Could not load image from {image_path}")
+        return
+
+    # Threshold the image to get a binary edge image
+    _, edge_image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY_INV)
+
+    # Find boundaries in the edge image
+    boundaries = boundary_linking(edge_image)
+
+    # Generate chain codes for each boundary
+    chain_codes = [chain_code(boundary) for boundary in boundaries]
+
+    # Show original and edge images
+    show_images([image, edge_image], ['Original Image', 'Edge Image'])
+
+    # Print number of boundaries found and their chain codes
+    print(f"Boundaries found: {len(boundaries)}")
+    for i, code in enumerate(chain_codes):
+        print(f"Boundary {i + 1} chain code: {code}")
+
+# Upload the image file
+uploaded = files.upload()
+
+# Execute the main function with the uploaded image path
+for filename in uploaded.keys():
+    main(filename)
